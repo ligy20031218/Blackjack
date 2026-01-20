@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BJ Genius - No Pass</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; font-family: 'Inter', sans-serif; }
+        .card-box { background: #1e293b; border: 1px solid #334155; }
+        .action-hit { background-color: #dc2626; } 
+        .action-stand { background-color: #059669; } 
+        .action-double { background-color: #2563eb; } 
+        .action-split { background-color: #7c3aed; }
+        .action-bust { background-color: #000000; }
+    </style>
+</head>
+<body class="text-white p-4">
+
+    <div class="max-w-md mx-auto space-y-4">
+        
+        <div class="text-center py-6">
+            <div class="flex justify-center mb-4">
+                <img src="image_07ba43.jpg" alt="Genius" class="w-32 h-32 rounded-2xl border-4 border-orange-500 shadow-2xl object-cover transform rotate-3">
+            </div>
+            <h1 class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 uppercase italic">
+                I am a BlackJack Genius, Bitch!
+            </h1>
+        </div>
+
+        <div id="mainApp" class="animate-in fade-in duration-500 space-y-4">
+            
+            <div id="setupPhase" class="card-box p-8 rounded-3xl shadow-2xl">
+                <div class="text-center mb-6">
+                    <span class="text-xs font-bold text-blue-400 uppercase tracking-widest underline decoration-2 underline-offset-4">Initial Deal</span>
+                </div>
+                <input type="text" id="initialInput" placeholder="D, P1, P2 (e.g. 6, A, 7)" 
+                    class="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl p-5 text-2xl text-center focus:border-blue-500 outline-none transition-all">
+                <button onclick="startHand()" class="w-full mt-6 bg-blue-600 hover:bg-blue-500 py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-all uppercase italic">Calculate Move</button>
+            </div>
+
+            <div id="playPhase" class="hidden space-y-4">
+                <div id="adviceColor" class="p-10 rounded-[2.5rem] text-center shadow-2xl border-b-8 border-black/20">
+                    <span id="handLabel" class="text-xs uppercase tracking-[0.3em] font-black opacity-70">Current Hand:</span>
+                    <div id="adviceText" class="text-6xl font-black mt-2 tracking-tighter italic">HIT</div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-800/50 p-5 rounded-3xl border border-slate-700 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-black mb-1">Dealer Shows</div>
+                        <div id="displayDealer" class="text-3xl font-black text-white">10</div>
+                    </div>
+                    <div class="bg-slate-800/50 p-5 rounded-3xl border border-slate-700 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-black mb-1">Hand Total</div>
+                        <div id="displayTotal" class="text-3xl font-black text-blue-400">16</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/50 p-5 rounded-3xl border border-slate-700">
+                    <div class="flex justify-between items-center">
+                        <span id="handIdentifier" class="text-[10px] text-slate-500 uppercase font-black">Hand 1</span>
+                        <span id="splitIndicator" class="hidden text-[10px] bg-purple-600 px-2 py-0.5 rounded font-bold uppercase">Split Mode</span>
+                    </div>
+                    <div id="displayCards" class="text-2xl font-bold tracking-tight mt-1">8, 8</div>
+                </div>
+
+                <div id="nextCardGroup" class="card-box p-6 rounded-[2rem] shadow-xl">
+                    <label id="inputLabel" class="block text-center text-xs font-black text-slate-400 mb-4 uppercase tracking-widest">Next Card?</label>
+                    <div class="flex gap-3">
+                        <input type="text" id="nextCardInput" placeholder="?" 
+                            class="w-full bg-slate-900 border-2 border-slate-700 rounded-xl p-4 text-center text-3xl font-black focus:border-blue-500 outline-none">
+                        <button onclick="addCard()" class="bg-blue-600 hover:bg-blue-500 px-10 rounded-xl font-black text-xl active:scale-95 transition-all">OK</button>
+                    </div>
+                </div>
+
+                <button id="nextHandBtn" onclick="finalizeCurrentHand()" class="hidden w-full bg-slate-700 hover:bg-slate-600 py-6 rounded-3xl font-black text-lg uppercase tracking-widest shadow-xl active:scale-95 transition-all">NEXT HAND →</button>
+            </div>
+
+            <div class="pt-4 pb-10">
+                <button onclick="resetApp()" class="w-full bg-slate-800/80 hover:bg-slate-700 border-2 border-slate-700 py-5 rounded-[2rem] font-black text-xs text-slate-400 uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all">
+                    🚨 EMERGENCY RESET / NEW HAND 🚨
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    const CARD_MAP = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':10,'Q':10,'K':10,'A':11};
+    let dealerUp = 0;
+    let dealerDisplay = "";
+    let splitHands = []; 
+    let activeHandIndex = 0;
+    let isSplitActive = false;
+
+    function getHandInfo(hand) {
+        let total = 0, aces = 0;
+        hand.forEach(c => { if(c === 11) aces++; total += c; });
+        while(total > 21 && aces > 0) { total -= 10; aces--; }
+        const soft = hand.includes(11) && (total + 10 <= 21);
+        return { total, soft };
+    }
+
+    function getStrategy(d, hand) {
+        const { total, soft } = getHandInfo(hand);
+        if (total >= 21) return "STAND";
+        if (hand.length === 2 && splitHands.length < 4) {
+            if (hand[0] === hand[1]) {
+                const p = hand[0];
+                if (p === 11 || p === 8) return "SPLIT";
+                if (p === 9 && ![7, 10, 11].includes(d)) return "SPLIT";
+                if ([2,3,6,7].includes(p) && d <= 7) return "SPLIT";
+                if (p === 4 && [5,6].includes(d)) return "SPLIT";
+            }
+            if (total === 11) return "DOUBLE";
+            if (total === 10 && d <= 9) return "DOUBLE";
+            if (total === 9 && d >= 3 && d <= 6) return "DOUBLE";
+            if (soft && [17, 18].includes(total) && d >= 3 && d <= 6) return "DOUBLE";
+        }
+        if (soft) return total >= 19 ? "STAND" : (total <= 17 || d >= 9 ? "HIT" : "STAND");
+        return total >= 17 ? "STAND" : (d >= 7 || total <= 12 ? "HIT" : "STAND");
+    }
+
+    function startHand() {
+        const val = document.getElementById('initialInput').value.toUpperCase();
+        const parts = val.split(/[, ]+/).filter(p => p.trim() !== "");
+        if (parts.length < 3) return;
+        dealerDisplay = parts[0];
+        dealerUp = CARD_MAP[parts[0]] || parseInt(parts[0]);
+        splitHands = [[CARD_MAP[parts[1]] || parseInt(parts[1]), CARD_MAP[parts[2]] || parseInt(parts[2])]];
+        activeHandIndex = 0;
+        document.getElementById('setupPhase').classList.add('hidden');
+        document.getElementById('playPhase').classList.remove('hidden');
+        updateDisplay();
+    }
+
+    function addCard() {
+        const val = document.getElementById('nextCardInput').value.toUpperCase().trim();
+        if (!val) return;
+        splitHands[activeHandIndex].push(CARD_MAP[val] || parseInt(val));
+        document.getElementById('nextCardInput').value = "";
+        updateDisplay();
+    }
+
+    function handleSplit() {
+        const currentHand = splitHands[activeHandIndex];
+        const cardToMove = currentHand.pop();
+        splitHands.push([cardToMove]); 
+        isSplitActive = true;
+        document.getElementById('splitIndicator').classList.remove('hidden');
+        updateDisplay();
+    }
+
+    function finalizeCurrentHand() {
+        if (activeHandIndex < splitHands.length - 1) {
+            activeHandIndex++;
+            updateDisplay();
+        } else {
+            resetHand();
+        }
+    }
+
+    function updateDisplay() {
+        const currentHand = splitHands[activeHandIndex];
+        let move = getStrategy(dealerUp, currentHand);
+        const { total } = getHandInfo(currentHand);
+        const adviceBox = document.getElementById('adviceColor');
+        adviceBox.className = "p-10 rounded-[2.5rem] text-center shadow-2xl border-b-8 border-black/20 transition-all duration-300 ";
+        
+        if (move === "SPLIT") { adviceBox.classList.add('action-split'); handleSplit(); return; } 
+        if (move === "HIT") adviceBox.classList.add('action-hit');
+        else if (move === "STAND") adviceBox.classList.add('action-stand');
+        else if (move === "DOUBLE") adviceBox.classList.add('action-double');
+        if (total > 21) { move = "BUST"; adviceBox.classList.add('action-bust'); }
+        
+        document.getElementById('adviceText').innerText = move;
+        document.getElementById('handIdentifier').innerText = `Hand ${activeHandIndex + 1} of ${splitHands.length}`;
+        document.getElementById('inputLabel').innerText = `Next card for Hand ${activeHandIndex + 1}?`;
+        document.getElementById('displayDealer').innerText = dealerDisplay;
+        document.getElementById('displayCards').innerText = currentHand.map(c => c === 11 ? 'A' : (c === 10 ? '10' : c)).join(', ');
+        document.getElementById('displayTotal').innerText = total;
+
+        const inputGroup = document.getElementById('nextCardGroup');
+        const nextHandBtn = document.getElementById('nextHandBtn');
+        if (move === "STAND" || move === "DOUBLE" || move === "BUST" || total >= 21) {
+            inputGroup.classList.add('hidden');
+            nextHandBtn.classList.remove('hidden');
+        } else {
+            inputGroup.classList.remove('hidden');
+            nextHandBtn.classList.add('hidden');
+        }
+    }
+
+    function resetHand() {
+        splitHands = [];
+        activeHandIndex = 0;
+        isSplitActive = false;
+        document.getElementById('initialInput').value = "";
+        document.getElementById('setupPhase').classList.remove('hidden');
+        document.getElementById('playPhase').classList.add('hidden');
+        document.getElementById('splitIndicator').classList.add('hidden');
+    }
+
+    function resetApp() { location.reload(); }
+
+    document.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            if (!document.getElementById('setupPhase').classList.contains('hidden')) startHand();
+            else if (!document.getElementById('nextCardGroup').classList.contains('hidden')) addCard();
+        }
+    });
+</script>
+</body>
+</html>
